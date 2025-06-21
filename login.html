@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Page</title>
+    <link rel="stylesheet" href="login.css">
+</head>
+<body>
+    <div class="login-container">
+        <form class="login-form" id="loginForm">
+            <h2>Login</h2>
+            <div class="input-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            <div class="input-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit">Login</button>
+            <p class="message" id="message"></p>
+            <p class="register-link">Don't have an account? <a href="#" id="showRegister">Register</a></p>
+        </form>
+        <form class="register-form" id="registerForm" style="display:none;">
+            <h2>Register</h2>
+            <div class="input-group">
+                <label for="reg-username">Username</label>
+                <input type="text" id="reg-username" name="reg-username" required>
+            </div>
+            <div class="input-group">
+                <label for="reg-password">Password</label>
+                <input type="password" id="reg-password" name="reg-password" required>
+            </div>
+            <button type="submit">Create Account</button>
+            <p class="message" id="reg-message"></p>
+            <p class="register-link">Already have an account? <a href="#" id="showLogin">Login</a></p>
+        </form>
+    </div>
+    <script src="login.js"></script>
+    <script>
+        // Toggle forms
+        document.getElementById('showRegister').onclick = function(e) {
+            e.preventDefault();
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('registerForm').style.display = 'block';
+        };
+        document.getElementById('showLogin').onclick = function(e) {
+            e.preventDefault();
+            document.getElementById('registerForm').style.display = 'none';
+            document.getElementById('loginForm').style.display = 'block';
+        };
+        // Register form submit
+        document.getElementById('registerForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const username = document.getElementById('reg-username').value.trim();
+            const password = document.getElementById('reg-password').value.trim();
+            const regMessage = document.getElementById('reg-message');
+            regMessage.textContent = '';
+            try {
+                const res = await fetch('http://localhost:3000/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    regMessage.style.color = '#27ae60';
+                    regMessage.textContent = 'Registration successful! You can now login.';
+                } else {
+                    regMessage.style.color = '#e74c3c';
+                    regMessage.textContent = data.message || 'Registration failed.';
+                }
+            } catch {
+                regMessage.style.color = '#e74c3c';
+                regMessage.textContent = 'Server error.';
+            }
+        });
+        // Login form submit (override to use API)
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const message = document.getElementById('message');
+            message.textContent = '';
+            try {
+                const res = await fetch('http://localhost:3000/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    message.style.color = '#27ae60';
+                    message.textContent = 'Login successful! Redirecting...';
+                    setTimeout(function() {
+                        window.location.href = 'ecommerce.html';
+                    }, 1000);
+                } else {
+                    message.style.color = '#e74c3c';
+                    message.textContent = data.message || 'Invalid username or password.';
+                }
+            } catch {
+                message.style.color = '#e74c3c';
+                message.textContent = 'Server error.';
+            }
+        });
+    </script>
+</body>
+</html>
