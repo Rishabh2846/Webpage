@@ -2,17 +2,16 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
-const mysql = require('mysql2');
+const { Pool } = require('pg');
 
 // Use environment variables for DB connection (set these in Render dashboard)
-const pool = mysql.createPool({
+const pool = new Pool({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
+    port: process.env.DB_PORT || 5432,
+    ssl: process.env.DB_SSL === 'true' || true // Render PostgreSQL requires SSL
 });
 
 const app = express();
@@ -23,41 +22,41 @@ app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, '.'))); // Serve static files
 
 // Register endpoint
-app.post('/api/register', (req, res) => {
+app.post('/api/register', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) {
         return res.status(400).json({ success: false, message: 'Username and password required.' });
     }
-    pool.query(
-        'INSERT INTO users (username, password) VALUES (?, ?)',
-        [username, password],
-        (err, results) => {
-            if (err) {
-                if (err.code === 'ER_DUP_ENTRY') {
-                    return res.status(409).json({ success: false, message: 'Username already exists.' });
-                }
-                return res.status(500).json({ success: false, message: 'Database error.' });
-            }
-            res.json({ success: true });
+    try {
+        await pool.query(
+            'INSERT INTO users (username, password) VALUES ($1, $2)',
+            [username, password]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        if (err.code === '23505') { // unique_violation
+            return res.status(409).json({ success: false, message: 'Username already exists.' });
         }
-    );
+        res.status(500).json({ success: false, message: 'Database error.' });
+    }
 });
 
 // Login endpoint
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
-    pool.query(
-        'SELECT * FROM users WHERE username = ? AND password = ?',
-        [username, password],
-        (err, results) => {
-            if (err) return res.status(500).json({ success: false, message: 'Database error.' });
-            if (results.length > 0) {
-                res.json({ success: true });
-            } else {
-                res.status(401).json({ success: false, message: 'Invalid credentials.' });
-            }
+    try {
+        const result = await pool.query(
+            'SELECT * FROM users WHERE username = $1 AND password = $2',
+            [username, password]
+        );
+        if (result.rows.length > 0) {
+            res.json({ success: true });
+        } else {
+            res.status(401).json({ success: false, message: 'Invalid credentials.' });
         }
-    );
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Database error.' });
+    }
 });
 
 // Serve index.html as base URL
